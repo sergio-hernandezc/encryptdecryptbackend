@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # --- Supabase Settings ---
     SUPABASE_URL: Optional[str] = None
-    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
+    SUPABASE_SERVICE_KEY: Optional[str] = None
     SUPABASE_ANON_KEY: Optional[str] = None
 
 

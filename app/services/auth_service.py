@@ -54,9 +54,13 @@ def decode_access_token(token: str) -> Optional[dict]:
 
 def get_supabase_admin_client() -> Client:
     """Initializes and returns a Supabase client with admin privileges."""
-    if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
-        raise ValueError("Supabase URL and Service Role Key must be configured in settings.")
-    supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_role_key = os.getenv("SUPABASE_SERVICE_KEY")
+    
+    if not supabase_url or not supabase_role_key:
+        raise ValueError("Supabase URL and Service Role Key must be configured in environment variables.")
+    
+    supabase: Client = create_client(supabase_url, supabase_role_key)
     return supabase
 
 # --- Supabase User Deletion ---
@@ -68,7 +72,7 @@ async def delete_supabase_user(user_id: str) -> bool:
         # Use the admin auth interface to delete the user
         response = supabase_admin.auth.admin.delete_user(user_id)
         # Check response - supabase-py might not raise an error on failure, check response details
-        # print(f"Supabase delete response: {response}") # Debugging
+        print(f"Supabase delete response: {response}") # Debugging
         # Assuming success if no exception is raised. Add more robust checking if needed.
         return True
     except Exception as e:
@@ -86,7 +90,7 @@ def get_user_from_token(token: str):
         # This is NOT an async function, so no await
         supabase = create_client(
             os.getenv("SUPABASE_URL"),
-            os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
+            os.getenv("SUPABASE_SERVICE_KEY"),
         )
         result = supabase.auth.get_user(token)
         
