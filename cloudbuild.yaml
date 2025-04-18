@@ -41,9 +41,9 @@ steps:
       # Use 'latest' for the newest version or a specific version number (e.g., ':1').
       # Replace placeholders like _SECRET_KEY_NAME with the actual secret names in Secret Manager
       # or define them as substitution variables in your Cloud Build trigger.
-      '--set-secrets=SECRET_KEY=projects/${_PROJECT_ID}/secrets/${_SECRET_KEY_NAME}:latest',
-      '--set-secrets=SUPABASE_URL=projects/${_PROJECT_ID}/secrets/${_SUPABASE_URL_NAME}:latest',
-      '--set-secrets=SUPABASE_SERVICE_ROLE_KEY=projects/${_PROJECT_ID}/secrets/${_SUPABASE_KEY_NAME}:latest',
+      '--set-secrets=SECRET_KEY=${_SECRET_KEY_NAME}:latest',
+      '--set-secrets=SUPABASE_URL=${_SUPABASE_URL_NAME}:latest',
+      '--set-secrets=SUPABASE_SERVICE_ROLE_KEY=${_SUPABASE_KEY_NAME}:latest',
 
       # --- Optional Settings ---
       # Uncomment the following line to allow unauthenticated access (for public APIs)
