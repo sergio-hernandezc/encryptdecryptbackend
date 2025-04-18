@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from supabase import create_client, Client
-
+import os
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -76,3 +76,22 @@ async def delete_supabase_user(user_id: str) -> bool:
         print(f"Error deleting Supabase user {user_id}: {e}")
         # You might want to map specific Supabase errors to HTTPExceptions
         return False
+
+def get_user_from_token(token: str):
+    """
+    Verify the Supabase JWT and return the user record.
+    Returns None if invalid.
+    """
+    try:
+        # Remove the await - this is not an async function
+        supabase = create_client(
+            os.getenv("SUPABASE_URL"),
+            os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
+        )
+        result = supabase.auth.get_user(token)
+        if result.error or not result.user:
+            return None
+        return result.user
+    except Exception as e:
+        print(f"Error verifying token: {e}")
+        return None
