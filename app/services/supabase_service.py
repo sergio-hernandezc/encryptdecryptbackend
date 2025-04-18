@@ -7,13 +7,18 @@ supabase = create_client(
 )
 
 
-async def get_user_from_token(token: str):
+def get_user_from_token(token: str):
     """
     Verify the Supabase JWT and return the user record.
-    Raises an exception if it’s invalid.
+    Returns None if invalid.
     """
-    # This calls Supabase’s /auth/v1/user endpoint under the hood
-    result = await supabase.auth.get_user(token)
-    if result.error or not result.data:
+    try:
+        result = supabase.auth.get_user(token)
+        if not result or not result.user:
+            print(f"Invalid token or no user found")
+            return None
+            
+        return result.user
+    except Exception as e:
+        print(f"Error verifying token: {str(e)}")
         return None
-    return result.data.user
