@@ -1,0 +1,77 @@
+# cloudbuild.yaml - Google Cloud Build configuration for FastAPI backend deployment
+
+steps:
+  # Step 1: Build the Docker image
+  # This step uses the Dockerfile located in the repository root
+  # to build the container image. The image is tagged with the Artifact Registry path
+  # including region, project ID, repository name, service name, and the commit SHA.
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA',
+      '.' # Build context is the current directory (repo root)
+    ]
+    id: 'Build Docker Image'
+
+  # Step 2: Push the Docker image to Google Artifact Registry
+  # This step pushes the built image to the specified Artifact Registry repository.
+  # Ensure the Artifact Registry repository exists and the Cloud Build service account has permissions.
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA']
+    id: 'Push to Artifact Registry'
+    waitFor: ['Build Docker Image'] # Ensure build is complete before pushing
+
+  # Step 3: Deploy the image to Google Cloud Run
+  # This step deploys the container image from Artifact Registry to a Cloud Run service.
+  # It configures the service name, region, and sets environment variables by referencing
+  # secrets stored in Google Secret Manager.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args: [
+      'run', 'deploy', '${_SERVICE_NAME}', # Name of the Cloud Run service
+      '--image', '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA', # Image to deploy
+      '--region', '${_REGION}',             # Region for the Cloud Run service
+      '--platform', 'managed',             # Use the fully managed Cloud Run platform
+      '--quiet',                           # Suppress interactive prompts
+
+      # --- Secret Management ---
+      # Mount secrets as environment variables in the Cloud Run service.
+      # Secrets must exist in Google Secret Manager in the same project.
+      # Format: '--set-secrets=ENV_VAR_NAME=projects/PROJECT_ID/secrets/SECRET_NAME:VERSION'
+      # Use 'latest' for the newest version or a specific version number (e.g., ':1').
+      # Replace placeholders like _SECRET_KEY_NAME with the actual secret names in Secret Manager
+      # or define them as substitution variables in your Cloud Build trigger.
+      '--set-secrets=SECRET_KEY=projects/${_PROJECT_ID}/secrets/${_SECRET_KEY_NAME}:latest',
+      '--set-secrets=SUPABASE_URL=projects/${_PROJECT_ID}/secrets/${_SUPABASE_URL_NAME}:latest',
+      '--set-secrets=SUPABASE_SERVICE_ROLE_KEY=projects/${_PROJECT_ID}/secrets/${_SUPABASE_KEY_NAME}:latest',
+
+      # --- Optional Settings ---
+      # Uncomment the following line to allow unauthenticated access (for public APIs)
+      # '--allow-unauthenticated',
+
+      # Add other Cloud Run flags as needed (e.g., --memory, --cpu, --vpc-connector)
+    ]
+    id: 'Deploy to Cloud Run'
+    waitFor: ['Push to Artifact Registry'] # Ensure image is pushed before deploying
+
+# Define the image(s) built by this pipeline. This helps Cloud Build optimize storage.
+images:
+  - '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
+
+# --- Substitution Variables ---
+# These variables should be defined in your Cloud Build trigger settings.
+# _REGION:        e.g., 'us-central1'
+# _PROJECT_ID:    Your Google Cloud project ID.
+# _REPO_NAME:     Your Artifact Registry Docker repository name.
+# _SERVICE_NAME:  Your desired Cloud Run service name.
+# _SECRET_KEY_NAME: Name of the secret in Secret Manager for SECRET_KEY.
+# _SUPABASE_URL_NAME: Name of the secret in Secret Manager for SUPABASE_URL.
+# _SUPABASE_KEY_NAME: Name of the secret in Secret Manager for SUPABASE_SERVICE_ROLE_KEY.
+# $COMMIT_SHA:    Provided automatically by Cloud Build, represents the Git commit SHA.
+
+# Optional: Set a timeout for the build.
+# timeout: '1200s' # 20 minutes
+
+# Optional: Specify substitution variable behavior.
+# options:
+#  substitution_option: 'ALLOW_LOOSE' # Allows using variables not explicitly defined here.
