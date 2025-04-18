@@ -92,7 +92,7 @@ async def generate_password_endpoint(request: PasswordGenRequest):
 @router.post(
     "/generate/key",
     summary="Generate a cryptographic key or key pair",
-    response_class=Response, # Use base Response class for flexibility (FileResponse or JSONResponse on error)
+    response_class=Response,
     # dependencies=[Depends(get_current_active_user_placeholder)] # Add auth later
 )
 async def generate_key_endpoint(request: KeyGenRequest):
@@ -115,6 +115,9 @@ async def generate_key_endpoint(request: KeyGenRequest):
              download_filename = f"{request.key_name}_{first_filename_base}.pem" # Use .pem for PEM files
 
         key_bytes = list(key_materials.values())[0]
+        
+        # Debug logging
+        print(f"Sending key with filename: {download_filename}, size: {len(key_bytes)} bytes")
 
         # Use StreamingResponse or FileResponse. StreamingResponse is generally better for large files.
         # For keys, FileResponse from bytes is fine.
@@ -127,7 +130,12 @@ async def generate_key_endpoint(request: KeyGenRequest):
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
-        pass
+        # Log the exception and raise an HTTP exception instead of silently passing
+        print(f"Unexpected error during key generation: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=f"Unexpected error during key generation: {str(e)}"
+        )
 
 
 # --- Symmetric Encryption/Decryption Endpoints ---
@@ -529,7 +537,7 @@ async def dh_complete_endpoint(request: DHCompleteRequest):
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"DH completion error: {e}")
     except Exception as e:
-        # Log the exception
+        # Log the exception in a real app
         print(f"Error during DH completion: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to complete DH exchange.")
 
