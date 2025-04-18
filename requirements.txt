@@ -1,0 +1,13 @@
+fastapi>=0.110.0,<0.111.0
+uvicorn[standard]>=0.29.0,<0.30.0
+python-dotenv>=1.0.0,<2.0.0 # For loading environment variables from .env file
+pydantic>=2.0.0,<3.0.0 # Required by FastAPI for data validation
+
+passlib[bcrypt]>=1.7.4,<1.8.0 # For password hashing
+python-jose[cryptography]>=3.3.0,<3.4.0 # For JWT handling
+
+cryptography>=42.0.0,<43.0.0 # Core library for cryptographic operations
+
+supabase>=1.0.0,<2.0.0 # Python client for Supabase
+
+# Database libraries if needed (e.g., sqlalchemy, databases)
