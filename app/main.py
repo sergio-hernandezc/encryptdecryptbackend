@@ -31,7 +31,7 @@ app.add_middleware(
 )
 
 # Include the API routers
-app.include_router(auth.router, prefix="/auth", tags=["User Management"])
+app.include_router(auth.router, prefix="/api", tags=["User Management"])
 app.include_router(crypto.router, prefix="/api", tags=["Cryptographic Operations & Key Exchange"])
 # Note: DH endpoints are included within the crypto router with prefix /api/key-exchange/dh/*
 app.include_router(user_files.router, prefix="/api/user", tags=["User Files"])
