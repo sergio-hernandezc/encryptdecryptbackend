@@ -58,6 +58,9 @@ steps:
 images:
   - '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 # --- Substitution Variables ---
 # These variables should be defined in your Cloud Build trigger settings.
 # _REGION:        e.g., 'us-central1'
