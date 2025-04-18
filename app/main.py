@@ -7,9 +7,9 @@ from app.api.endpoints import auth, crypto, user_files # key_exchange is within 
 # Define allowed origins for CORS (adjust as needed for production)
 # In development, you might allow your frontend's local development server
 origins = [
-    "http://localhost:3000",  # Default Next.js dev port
-    "http://127.0.0.1:3000",
+    
     "https://encryptdecrypt-frontend.vercel.app",
+    "https://encryptdecrypt-frontend.vercel.app/manage",
     "https://encryptdecrypt-frontend-git-main-sergio-hernandezcs-projects.vercel.app",
     # Add your deployed frontend URL here for production
 ]
