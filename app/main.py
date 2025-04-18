@@ -9,7 +9,7 @@ from app.api.endpoints import auth, crypto, user_files # key_exchange is within 
 origins = [
     "http://localhost:3000",  # Default Next.js dev port
     "http://127.0.0.1:3000",
-    "https://encryptdecrypt-frontend.vercel.app/home"
+    "https://encryptdecrypt-frontend.vercel.app/home",
     # Add your deployed frontend URL here for production
 ]
 

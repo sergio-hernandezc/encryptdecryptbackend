@@ -30,4 +30,4 @@ EXPOSE 8080
 # Define the command to run the application
 # Use the PORT environment variable provided by Cloud Run, default to 8080
 # Use 0.0.0.0 to listen on all available network interfaces
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${PORT:-8080}"]
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}
