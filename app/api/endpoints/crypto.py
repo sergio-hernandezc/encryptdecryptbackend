@@ -99,7 +99,8 @@ async def generate_key_endpoint(request: KeyGenRequest):
     """
     Generates a symmetric key or an asymmetric key pair (RSA).
     Returns the key(s) as downloadable file(s).
-    For asymmetric keys, currently returns the private key.
+    For asymmetric keys, returns both the private and public key.
+    For symmetric keys, returns a single key file.
     """
     try:
         # Debug request data
@@ -126,25 +127,55 @@ async def generate_key_endpoint(request: KeyGenRequest):
         # Debug key materials
         print(f"DEBUG - Key materials keys: {list(key_materials.keys())}")
         
-        # For now, return the first key generated (e.g., private key for RSA)
-        # A better approach might be to zip multiple files or have separate endpoints
-        first_filename_base = list(key_materials.keys())[0].split('.')[0] # e.g., "rsa_private"
-        download_filename = f"{request.key_name}_{first_filename_base}.key" # e.g., "my_key_rsa_private.key"
-        if '.pem' in list(key_materials.keys())[0]:
-            download_filename = f"{request.key_name}_{first_filename_base}.pem" # Use .pem for PEM files
+        # If this is a symmetric key, return as a single file
+        if request.key_type == 'symmetric':
+            first_filename_base = list(key_materials.keys())[0].split('.')[0]
+            download_filename = f"{request.key_name}_{first_filename_base}.key" # e.g., "my_key_aes_256.key"
+            key_bytes = list(key_materials.values())[0]
+            
+            # Debug response preparation
+            print(f"DEBUG - Sending symmetric key with filename: {download_filename}, size: {len(key_bytes)} bytes")
 
-        key_bytes = list(key_materials.values())[0]
-        
-        # Debug response preparation
-        print(f"DEBUG - Sending key with filename: {download_filename}, size: {len(key_bytes)} bytes")
-
-        # Use StreamingResponse or FileResponse. StreamingResponse is generally better for large files.
-        # For keys, FileResponse from bytes is fine.
-        return Response(
-            content=key_bytes,
-            media_type="application/octet-stream",
-            headers={"Content-Disposition": f"attachment; filename=\"{download_filename}\""}
-        )
+            return Response(
+                content=key_bytes,
+                media_type="application/octet-stream",
+                headers={"Content-Disposition": f"attachment; filename=\"{download_filename}\""}
+            )
+            
+        # For asymmetric keys, return both keys as a ZIP file
+        elif request.key_type == 'asymmetric':
+            # For asymmetric keys, return both keys as a ZIP file
+            import io
+            import zipfile
+            
+            # Create a BytesIO object to hold the zip file
+            zip_buffer = io.BytesIO()
+            
+            # Create a ZipFile object
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # Add private key
+                private_key_filename = f"{request.key_name}_private.pem"
+                zip_file.writestr(private_key_filename, key_materials["rsa_private.pem"])
+                print(f"DEBUG - Added private key to zip archive as {private_key_filename}")
+                
+                # Add public key
+                public_key_filename = f"{request.key_name}_public.pem" 
+                zip_file.writestr(public_key_filename, key_materials["rsa_public.pem"])
+                print(f"DEBUG - Added public key to zip archive as {public_key_filename}")
+            
+            # Reset buffer position to the beginning
+            zip_buffer.seek(0)
+            
+            # Set the download filename
+            zip_filename = f"{request.key_name}_keypair.zip"
+            print(f"DEBUG - Sending zipped keys with filename: {zip_filename}")
+            
+            # Return the zip file
+            return Response(
+                content=zip_buffer.getvalue(),
+                media_type="application/zip",
+                headers={"Content-Disposition": f"attachment; filename=\"{zip_filename}\""}
+            )
 
     except ValueError as e:
         print(f"DEBUG - ValueError in key generation endpoint: {str(e)}")
@@ -160,6 +191,7 @@ async def generate_key_endpoint(request: KeyGenRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail=f"Unexpected error during key generation: {str(e)}"
         )
+
 
 
 # --- Symmetric Encryption/Decryption Endpoints ---

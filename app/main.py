@@ -28,6 +28,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
     allow_headers=["*"],  # Allows all headers
+    expose_headers=["Content-Disposition", "X-Public-Key-Available", "X-Public-Key-Name"],  # Expose our custom headers
 )
 
 # Include the API routers
