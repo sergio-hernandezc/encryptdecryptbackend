@@ -536,7 +536,8 @@ async def decrypt_asymmetric_endpoint(
 
 @router.post(
     "/hash",
-    response_model=HashResponse,
+    # response_model=HashResponse,  # Removing this as we're returning a file now
+    response_class=Response,  # Changing to Response to return a file
     summary="Calculate the hash of an uploaded file",
     # dependencies=[Depends(get_current_active_user_placeholder)] # Add auth later
 )
@@ -546,13 +547,23 @@ async def hash_file_endpoint(
 ):
     """
     Calculates the hash of the uploaded file using the specified algorithm.
-    Returns the calculated hash value in hexadecimal format.
+    Returns the calculated hash value as a downloadable text file.
     """
     input_data = await _read_file_content(file)
 
     try:
         hash_value = crypto_service.calculate_hash(data=input_data, algorithm=algorithm)
-        return HashResponse(hash=hash_value)
+        
+        # Create a download filename based on the original file and algorithm
+        base_name = os.path.splitext(file.filename)[0]
+        download_filename = f"{base_name}_{algorithm}_hash.txt"
+        
+        # Return just the hash value as a text file
+        return Response(
+            content=hash_value,
+            media_type="text/plain",
+            headers={"Content-Disposition": f"attachment; filename=\"{download_filename}\""}
+        )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Hashing error: {e}")
     except Exception as e:
