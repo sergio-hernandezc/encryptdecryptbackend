@@ -398,6 +398,10 @@ def calculate_hash(data: bytes, algorithm: Literal['SHA2-256', 'SHA2-512', 'SHA3
         # This case should ideally be prevented by Pydantic validation in the endpoint
         raise ValueError(f"Unsupported hash algorithm: {algorithm}")
 
+    # Update the hasher with the data and return the hexadecimal digest
+    hasher.update(data)
+    return hasher.hexdigest()
+
 
 # --- Diffie-Hellman ---
 
