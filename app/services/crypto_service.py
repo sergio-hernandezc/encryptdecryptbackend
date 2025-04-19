@@ -68,54 +68,106 @@ def generate_key(key_type: Literal['symmetric', 'asymmetric'], algorithm: Litera
         A dictionary where keys are suggested filenames (e.g., 'private.pem', 'public.pem', 'symmetric.key')
         and values are the key material in bytes.
     """
+    import traceback
+    print(f"DEBUG - generate_key called with key_type={key_type}, algorithm={algorithm}")
+    
     key_material = {}
 
-    if key_type == 'symmetric':
-        key_bytes: Optional[bytes] = None
-        filename = "symmetric.key"
-        if algorithm == 'AES-128':
-            key_bytes = os.urandom(16) # 128 bits
-            filename = "aes_128.key"
-        elif algorithm == 'AES-256':
-            key_bytes = os.urandom(32) # 256 bits
-            filename = "aes_256.key"
-        elif algorithm == '3DES':
-            # 3DES uses 16 or 24 bytes. We'll use 24 for Triple DES (3-key).
-            key_bytes = os.urandom(24)
-            filename = "3des.key"
+    try:
+        if key_type == 'symmetric':
+            print(f"DEBUG - Generating symmetric key for algorithm: {algorithm}")
+            key_bytes: Optional[bytes] = None
+            filename = "symmetric.key"
+            
+            try:
+                if algorithm == 'AES-128':
+                    print("DEBUG - Generating AES-128 key")
+                    key_bytes = os.urandom(16) # 128 bits
+                    print(f"DEBUG - Generated {len(key_bytes)} bytes for AES-128")
+                    filename = "aes_128.key"
+                elif algorithm == 'AES-256':
+                    print("DEBUG - Generating AES-256 key")
+                    key_bytes = os.urandom(32) # 256 bits
+                    print(f"DEBUG - Generated {len(key_bytes)} bytes for AES-256")
+                    filename = "aes_256.key"
+                elif algorithm == '3DES':
+                    print("DEBUG - Generating 3DES key")
+                    # 3DES uses 16 or 24 bytes. We'll use 24 for Triple DES (3-key).
+                    key_bytes = os.urandom(24)
+                    print(f"DEBUG - Generated {len(key_bytes)} bytes for 3DES")
+                    filename = "3des.key"
+                else:
+                    print(f"DEBUG - Unsupported symmetric algorithm: {algorithm}")
+                    raise ValueError(f"Unsupported symmetric algorithm: {algorithm}")
+            except Exception as e:
+                print(f"DEBUG - Error generating symmetric key: {str(e)}")
+                print(f"DEBUG - Error type: {type(e).__name__}")
+                print(f"DEBUG - Traceback: {traceback.format_exc()}")
+                raise
+                
+            if key_bytes:
+                print(f"DEBUG - Adding symmetric key to key_material with filename: {filename}")
+                key_material[filename] = key_bytes
+            else:
+                print("DEBUG - key_bytes is None, no key was generated")
+                raise ValueError("Failed to generate symmetric key bytes")
+
+        elif key_type == 'asymmetric':
+            print(f"DEBUG - Generating asymmetric key for algorithm: {algorithm}")
+            
+            try:
+                if algorithm == 'RSA-2048':
+                    print("DEBUG - Generating RSA-2048 key pair")
+                    
+                    print("DEBUG - Creating private key")
+                    private_key = rsa.generate_private_key(
+                        public_exponent=65537,
+                        key_size=2048,
+                        backend=default_backend()
+                    )
+                    print("DEBUG - Private key generated, creating public key")
+                    public_key = private_key.public_key()
+                    print("DEBUG - Public key generated")
+
+                    # Serialize private key to PEM format (unencrypted)
+                    print("DEBUG - Serializing private key to PEM format")
+                    pem_private = private_key.private_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PrivateFormat.PKCS8,
+                        encryption_algorithm=serialization.NoEncryption()
+                    )
+                    print(f"DEBUG - Private key serialized, size: {len(pem_private)} bytes")
+                    key_material["rsa_private.pem"] = pem_private
+
+                    # Serialize public key to PEM format
+                    print("DEBUG - Serializing public key to PEM format")
+                    pem_public = public_key.public_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PublicFormat.SubjectPublicKeyInfo
+                    )
+                    print(f"DEBUG - Public key serialized, size: {len(pem_public)} bytes")
+                    key_material["rsa_public.pem"] = pem_public
+                else:
+                    print(f"DEBUG - Unsupported asymmetric algorithm: {algorithm}")
+                    raise ValueError(f"Unsupported asymmetric algorithm: {algorithm}")
+            except Exception as e:
+                print(f"DEBUG - Error generating asymmetric key: {str(e)}")
+                print(f"DEBUG - Error type: {type(e).__name__}")
+                print(f"DEBUG - Traceback: {traceback.format_exc()}")
+                raise
+
         else:
-            raise ValueError(f"Unsupported symmetric algorithm: {algorithm}")
-        if key_bytes:
-            key_material[filename] = key_bytes
-
-    elif key_type == 'asymmetric':
-        if algorithm == 'RSA-2048':
-            private_key = rsa.generate_private_key(
-                public_exponent=65537,
-                key_size=2048,
-                backend=default_backend()
-            )
-            public_key = private_key.public_key()
-
-            # Serialize private key to PEM format (unencrypted)
-            pem_private = private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption()
-            )
-            key_material["rsa_private.pem"] = pem_private
-
-            # Serialize public key to PEM format
-            pem_public = public_key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo
-            )
-            key_material["rsa_public.pem"] = pem_public
-        else:
-            raise ValueError(f"Unsupported asymmetric algorithm: {algorithm}")
-
-    else:
-        raise ValueError(f"Unsupported key type: {key_type}")
+            print(f"DEBUG - Unsupported key type: {key_type}")
+            raise ValueError(f"Unsupported key type: {key_type}")
+            
+        print(f"DEBUG - Key material generated successfully, returning {len(key_material)} entries")
+        return key_material
+        
+    except Exception as e:
+        print(f"DEBUG - Unhandled exception in generate_key: {str(e)}")
+        print(f"DEBUG - Error type: {type(e).__name__}")
+        print(f"DEBUG - Traceback: {traceback.format_exc()}")
+        raise
 
 
 # --- Symmetric Encryption/Decryption ---

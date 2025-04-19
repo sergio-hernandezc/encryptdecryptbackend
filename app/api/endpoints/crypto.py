@@ -102,22 +102,41 @@ async def generate_key_endpoint(request: KeyGenRequest):
     For asymmetric keys, currently returns the private key.
     """
     try:
-        key_materials = crypto_service.generate_key(request.key_type, request.algorithm)
+        # Debug request data
+        print(f"DEBUG - Key generation request received: {request.dict()}")
+        print(f"DEBUG - Key type: {request.key_type}, Algorithm: {request.algorithm}, Key name: {request.key_name}")
+        
+        # Call the service function with detailed error trapping
+        try:
+            key_materials = crypto_service.generate_key(request.key_type, request.algorithm)
+            print(f"DEBUG - Key materials returned: {len(key_materials)} entries")
+            for key_name in key_materials.keys():
+                print(f"DEBUG - Generated key with name: {key_name}")
+        except Exception as service_error:
+            import traceback
+            error_traceback = traceback.format_exc()
+            print(f"DEBUG - Error in crypto_service.generate_key: {str(service_error)}")
+            print(f"DEBUG - Traceback from generate_key: {error_traceback}")
+            raise  # Re-raise to be caught by the outer try-except
 
         if not key_materials:
-             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Key generation failed unexpectedly.")
+            print("DEBUG - Key materials dictionary is empty")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Key generation failed unexpectedly.")
 
+        # Debug key materials
+        print(f"DEBUG - Key materials keys: {list(key_materials.keys())}")
+        
         # For now, return the first key generated (e.g., private key for RSA)
         # A better approach might be to zip multiple files or have separate endpoints
         first_filename_base = list(key_materials.keys())[0].split('.')[0] # e.g., "rsa_private"
         download_filename = f"{request.key_name}_{first_filename_base}.key" # e.g., "my_key_rsa_private.key"
         if '.pem' in list(key_materials.keys())[0]:
-             download_filename = f"{request.key_name}_{first_filename_base}.pem" # Use .pem for PEM files
+            download_filename = f"{request.key_name}_{first_filename_base}.pem" # Use .pem for PEM files
 
         key_bytes = list(key_materials.values())[0]
         
-        # Debug logging
-        print(f"Sending key with filename: {download_filename}, size: {len(key_bytes)} bytes")
+        # Debug response preparation
+        print(f"DEBUG - Sending key with filename: {download_filename}, size: {len(key_bytes)} bytes")
 
         # Use StreamingResponse or FileResponse. StreamingResponse is generally better for large files.
         # For keys, FileResponse from bytes is fine.
@@ -128,10 +147,15 @@ async def generate_key_endpoint(request: KeyGenRequest):
         )
 
     except ValueError as e:
+        print(f"DEBUG - ValueError in key generation endpoint: {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         # Log the exception and raise an HTTP exception instead of silently passing
-        print(f"Unexpected error during key generation: {str(e)}")
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"DEBUG - Unexpected error during key generation: {str(e)}")
+        print(f"DEBUG - Error type: {type(e).__name__}")
+        print(f"DEBUG - Complete traceback: {error_traceback}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail=f"Unexpected error during key generation: {str(e)}"
