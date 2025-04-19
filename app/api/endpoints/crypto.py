@@ -286,41 +286,123 @@ async def decrypt_symmetric_endpoint(
     - IV must be provided for CBC mode (hex format).
     - Returns the decrypted file for download.
     """
-    ciphertext = await _read_file_content(file)
-    key_bytes: Optional[bytes] = None
-    iv_bytes: Optional[bytes] = None
+    print(f"DEBUG - decrypt_symmetric_endpoint called with algorithm={algorithm}, mode={mode}, file={file.filename}")
+    
+    try:
+        # Read the encrypted file content
+        ciphertext = await _read_file_content(file)
+        print(f"DEBUG - Read encrypted file: {file.filename}, size: {len(ciphertext)} bytes")
+        
+        key_bytes: Optional[bytes] = None
+        iv_bytes: Optional[bytes] = None
 
-    # Determine IV
-    iv_bytes_required = (mode == 'CBC')
-    block_size_bytes = 16 if 'AES' in algorithm else 8
+        # Determine IV
+        iv_bytes_required = (mode == 'CBC')
+        block_size_bytes = 16 if 'AES' in algorithm else 8
+        print(f"DEBUG - IV required: {iv_bytes_required}, block size: {block_size_bytes} bytes")
 
-    if iv_bytes_required:
-        if not iv_hex:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="IV (hex) is required for CBC mode decryption.")
-        iv_bytes = _hex_to_bytes(iv_hex, expected_bytes=block_size_bytes, field_name="IV")
-    elif iv_hex:
-        # IV provided but not needed (e.g., for ECB) - ignore
-        pass
+        if iv_bytes_required:
+            if not iv_hex:
+                print("DEBUG - CBC mode but no IV provided")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="IV (hex) is required for CBC mode decryption.")
+            try:
+                iv_bytes = _hex_to_bytes(iv_hex, expected_bytes=block_size_bytes, field_name="IV")
+                print(f"DEBUG - IV parsed successfully, size: {len(iv_bytes)} bytes")
+            except Exception as e:
+                print(f"DEBUG - Error parsing IV: {str(e)}")
+                raise
+        elif iv_hex:
+            # IV provided but not needed (e.g., for ECB) - ignore
+            print("DEBUG - IV provided but not needed for ECB mode")
+            pass
 
-    # Determine Key (Priority: File > Hex String)
-    key_size_bytes = 0
-    if algorithm == 'AES-128': key_size_bytes = 16
-    elif algorithm == 'AES-256': key_size_bytes = 32
-    elif algorithm == '3DES': key_size_bytes = 24
+        # Determine Key (Priority: File > Hex String)
+        key_size_bytes = 0
+        if algorithm == 'AES-128': key_size_bytes = 16
+        elif algorithm == 'AES-256': key_size_bytes = 32
+        elif algorithm == '3DES': key_size_bytes = 24
+        print(f"DEBUG - Required key size for {algorithm}: {key_size_bytes} bytes")
 
-    if key_file:
-        key_bytes_from_file = await _read_file_content(key_file)
-        if len(key_bytes_from_file) != key_size_bytes:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Key file content size ({len(key_bytes_from_file)} bytes) does not match required size for {algorithm} ({key_size_bytes} bytes).")
-        key_bytes = key_bytes_from_file
-    elif key_hex:
-        key_bytes = _hex_to_bytes(key_hex, expected_bytes=key_size_bytes, field_name="Key")
-    else:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Decryption key (hex string or file) is required.")
+        if key_file:
+            print(f"DEBUG - Using key from file: {key_file.filename}")
+            try:
+                key_bytes_from_file = await _read_file_content(key_file)
+                print(f"DEBUG - Read key file, size: {len(key_bytes_from_file)} bytes")
+                if len(key_bytes_from_file) != key_size_bytes:
+                    print(f"DEBUG - Key file has wrong size: {len(key_bytes_from_file)} bytes, expected: {key_size_bytes} bytes")
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Key file content size ({len(key_bytes_from_file)} bytes) does not match required size for {algorithm} ({key_size_bytes} bytes).")
+                key_bytes = key_bytes_from_file
+            except Exception as e:
+                print(f"DEBUG - Error reading key file: {str(e)}")
+                raise
+        elif key_hex:
+            print("DEBUG - Using key from hex input")
+            try:
+                key_bytes = _hex_to_bytes(key_hex, expected_bytes=key_size_bytes, field_name="Key")
+                print(f"DEBUG - Key parsed from hex, size: {len(key_bytes)} bytes")
+            except Exception as e:
+                print(f"DEBUG - Error parsing key hex: {str(e)}")
+                raise
+        else:
+            print("DEBUG - No key provided")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Decryption key (hex string or file) is required.")
 
-    if not key_bytes:
-         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Decryption key is required.") # Should not happen
+        if not key_bytes:
+             print("DEBUG - Key bytes is None after processing")
+             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Decryption key is required.") # Should not happen
 
+        # Call decrypt_symmetric function
+        print("DEBUG - Calling decrypt_symmetric service function")
+        try:
+            plaintext = crypto_service.decrypt_symmetric(
+                algorithm=algorithm,
+                mode=mode,
+                key=key_bytes,
+                iv=iv_bytes,
+                ciphertext=ciphertext
+            )
+            print(f"DEBUG - Decryption successful, plaintext size: {len(plaintext)} bytes")
+        except ValueError as e:
+            print(f"DEBUG - ValueError from decrypt_symmetric: {str(e)}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Decryption error: {e}")
+        except Exception as e:
+            print(f"DEBUG - Unexpected error from decrypt_symmetric: {str(e)}")
+            import traceback
+            print(f"DEBUG - Traceback: {traceback.format_exc()}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to decrypt file: {str(e)}")
+
+        # Determine download filename
+        base, ext = os.path.splitext(file.filename)
+        if base.endswith('_encrypted'):
+            base = base[:-10] # Remove '_encrypted' suffix if present
+        download_filename = f"{base}_decrypted{ext if ext else '.txt'}"
+        print(f"DEBUG - Download filename: {download_filename}")
+
+        # Create response with decrypted content
+        print(f"DEBUG - Creating response with {len(plaintext)} bytes of data")
+        try:
+            response = Response(
+                content=plaintext,
+                media_type="application/octet-stream", # Or try to guess based on original extension
+                headers={"Content-Disposition": f"attachment; filename=\"{download_filename}\""}
+            )
+            print("DEBUG - Response created successfully")
+            return response
+        except Exception as e:
+            print(f"DEBUG - Error creating response: {str(e)}")
+            import traceback
+            print(f"DEBUG - Traceback: {traceback.format_exc()}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error creating response: {str(e)}")
+
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        # Log the exception in a real app
+        print(f"DEBUG - Unhandled exception in decrypt_symmetric_endpoint: {str(e)}")
+        import traceback
+        print(f"DEBUG - Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to decrypt file: {str(e)}")
 
 
 # --- Asymmetric Encryption/Decryption Endpoints ---

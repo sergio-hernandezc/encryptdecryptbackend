@@ -233,20 +233,53 @@ def decrypt_symmetric(
     ciphertext: bytes
 ) -> bytes:
     """Decrypts data using a symmetric algorithm."""
-    cipher, block_size_bytes = _get_symmetric_cipher(algorithm, mode, key, iv)
-    decryptor = cipher.decryptor()
-
+    print(f"DEBUG - decrypt_symmetric called: algorithm={algorithm}, mode={mode}, key_len={len(key)}, iv_len={len(iv) if iv else 0}, ciphertext_len={len(ciphertext)}")
+    
     try:
-        padded_plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+        # Get cipher and block size
+        cipher, block_size_bytes = _get_symmetric_cipher(algorithm, mode, key, iv)
+        print(f"DEBUG - Cipher created, block_size={block_size_bytes}")
+        
+        # Create decryptor
+        decryptor = cipher.decryptor()
+        print("DEBUG - Decryptor created")
+        
+        try:
+            # Decrypt the ciphertext
+            print(f"DEBUG - Starting decryption of {len(ciphertext)} bytes")
+            padded_plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+            print(f"DEBUG - Decryption successful, padded result is {len(padded_plaintext)} bytes")
 
-        # Remove PKCS7 padding
-        unpadder = sym_padding.PKCS7(block_size_bytes * 8).unpadder()
-        plaintext = unpadder.update(padded_plaintext) + unpadder.finalize()
-        return plaintext
-    except (ValueError, InvalidTag) as e:
-        # ValueError can be raised by unpadder if padding is incorrect
-        # InvalidTag might be raised by authenticated modes (not used here, but good practice)
-        raise ValueError("Decryption failed. Incorrect key, IV, or corrupted data.") from e
+            # Remove PKCS7 padding
+            print("DEBUG - Removing PKCS7 padding")
+            unpadder = sym_padding.PKCS7(block_size_bytes * 8).unpadder()
+            plaintext = unpadder.update(padded_plaintext) + unpadder.finalize()
+            print(f"DEBUG - Padding removed, final plaintext is {len(plaintext)} bytes")
+            
+            # Check if the plaintext is valid
+            if len(plaintext) == 0:
+                print("DEBUG - WARNING: Plaintext is empty after decryption!")
+            else:
+                print(f"DEBUG - First few bytes of plaintext: {plaintext[:20]}")
+                
+            # Return the plaintext
+            return plaintext
+            
+        except (ValueError, InvalidTag) as e:
+            # ValueError can be raised by unpadder if padding is incorrect
+            # InvalidTag might be raised by authenticated modes (not used here, but good practice)
+            print(f"DEBUG - Error during decryption or unpadding: {str(e)}")
+            raise ValueError("Decryption failed. Incorrect key, IV, or corrupted data.") from e
+        except Exception as e:
+            print(f"DEBUG - Unexpected error during decryption: {str(e)}")
+            import traceback
+            print(f"DEBUG - Traceback: {traceback.format_exc()}")
+            raise ValueError(f"Unexpected error during decryption: {str(e)}") from e
+    except Exception as e:
+        print(f"DEBUG - Error in decrypt_symmetric: {str(e)}")
+        import traceback
+        print(f"DEBUG - Traceback: {traceback.format_exc()}")
+        raise
 
 
 # --- Asymmetric Encryption/Decryption ---
